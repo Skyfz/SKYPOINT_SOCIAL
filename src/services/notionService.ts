@@ -15,7 +15,7 @@ export async function updateNotionPageStatus(
 ): Promise<UpdateResult> {
   try {
     // Prepare properties to update
-    const properties: any = {};
+    const properties: Record<string, any> = {};
     
     // Update Status property if it exists
     if (status) {

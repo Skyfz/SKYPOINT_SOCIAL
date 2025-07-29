@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSocialMediaPostsCollection } from '@/models/SocialMediaPost';
+import { getSocialMediaPostsCollection, SocialMediaPost } from '@/models/SocialMediaPost';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,10 +26,10 @@ export async function POST(request: NextRequest) {
     }
 
     const scheduledDate = new Date(scheduledDateStr);
-    const platforms = properties['Platforms']?.multi_select?.map((p: any) => p.name) || [];
+    const platforms = properties['Platforms']?.multi_select?.map((p: { name: string }) => p.name) || [];
 
     // Create new post object
-    const newPost: any = {
+    const newPost: Omit<SocialMediaPost, '_id'> = {
       notion_page_id: notionPageId,
       post_text: postText,
       post_media: postMedia,
@@ -44,10 +44,10 @@ export async function POST(request: NextRequest) {
 
     // Save to MongoDB
     const postsCollection = await getSocialMediaPostsCollection();
-    await postsCollection.insertOne(newPost);
+    const result = await postsCollection.insertOne(newPost as SocialMediaPost);
 
     return NextResponse.json(
-      { message: 'Post received and saved successfully', postId: newPost._id },
+      { message: 'Post received and saved successfully', postId: result.insertedId },
       { status: 200 }
     );
   } catch (error) {

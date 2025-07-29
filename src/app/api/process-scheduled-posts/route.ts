@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSocialMediaPostsCollection } from '@/models/SocialMediaPost';
+import { NextResponse } from 'next/server';
+import { getSocialMediaPostsCollection, SocialMediaPost } from '@/models/SocialMediaPost';
 import { postToSocialMedia } from '@/services/socialMediaService';
 import { updateNotionPageStatus } from '@/services/notionService';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const postsCollection = await getSocialMediaPostsCollection();
     
@@ -26,14 +26,21 @@ export async function GET(request: NextRequest) {
     }
 
     // Process each pending post
-    const results = [];
+    const results: Array<{
+      postId: any;
+      notionPageId: string;
+      status: string | undefined;
+      links?: Record<string, string>;
+      success: boolean;
+      error?: string | null;
+    }> = [];
     for (const post of pendingPosts) {
       try {
         // Execute social media posting
         const postResult = await postToSocialMedia(post);
         
         // Update post status and links in MongoDB
-        const updateData: any = {
+        const updateData: Partial<SocialMediaPost> = {
           status: postResult.success ? 'posted' : 'failed',
           post_links: postResult.links,
           updated_at: new Date()
@@ -47,7 +54,7 @@ export async function GET(request: NextRequest) {
         // Update Notion page status
         await updateNotionPageStatus(
           post.notion_page_id,
-          updateData.status,
+          updateData.status || 'failed',
           updateData.post_links
         );
 
