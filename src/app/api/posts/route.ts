@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSocialMediaPostsCollection, SocialMediaPost } from '@/models/SocialMediaPost';
 import { ObjectId } from 'mongodb';
+import { v2 as cloudinary } from 'cloudinary';
+// import { formidable } from 'formidable';
 
 export async function GET(request: NextRequest) {
   try {
