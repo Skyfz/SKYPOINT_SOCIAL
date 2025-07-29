@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { Button, Card, CardBody, CardHeader, Chip, Spinner } from '@heroui/react';
+import { useRouter } from 'next/navigation';
 
+// Interface for a single post
 interface Post {
   _id: string;
-  notion_page_id: string;
   post_text: string;
   scheduled_date: string;
   team?: string;
@@ -17,6 +19,7 @@ interface Post {
   post_links?: Record<string, string>;
 }
 
+// Interface for the summary counts
 interface Counts {
   total: number;
   pending: number;
@@ -25,6 +28,7 @@ interface Counts {
   partialSuccess: number;
 }
 
+// Main Dashboard Component
 export default function Dashboard() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [counts, setCounts] = useState<Counts>({
@@ -36,11 +40,14 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
+  // Fetches posts and counts from the API
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/posts');
+      // In a real app, replace this with your actual API endpoint
+      const response = await fetch('/api/posts'); 
       const data = await response.json();
       
       if (response.ok) {
@@ -51,31 +58,42 @@ export default function Dashboard() {
         setError(data.error || 'Failed to fetch posts');
       }
     } catch (err) {
-      setError('Failed to connect to the server');
+      setError('Failed to connect to the server. Please check your connection.');
       console.error('Error fetching posts:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch data on initial component mount
   useEffect(() => {
     fetchPosts();
   }, []);
 
-  const getStatusColor = (status: string) => {
+  // Maps post status to a color for the Chip component
+  const getStatusColor = (status: Post['status']): "warning" | "success" | "danger" | "primary" | "default" => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'posted': return 'bg-green-100 text-green-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'partial_success': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'warning';
+      case 'posted': return 'success';
+      case 'failed': return 'danger';
+      case 'partial_success': return 'primary';
+      default: return 'default';
     }
   };
-
+  
+  // Formats a date string to a more readable locale string
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
   };
 
+  // Calculates and formats the relative time until a post is scheduled
   const formatScheduledTime = (scheduledDate: string) => {
     const now = new Date();
     const scheduled = new Date(scheduledDate);
@@ -85,150 +103,134 @@ export default function Dashboard() {
 
     if (diffHours < 0) {
       return `Overdue by ${Math.abs(Math.round(diffHours))} hours`;
-    } else if (diffHours < 1) {
-      return `In ${Math.round(diffHours * 60)} minutes`;
-    } else if (diffDays < 1) {
-      return `In ${Math.round(diffHours)} hours`;
-    } else {
-      return `In ${Math.round(diffDays)} days`;
     }
+    if (diffHours < 1) {
+      return `In ${Math.round(diffHours * 60)} minutes`;
+    }
+    if (diffDays < 1) {
+      return `In ${Math.round(diffHours)} hours`;
+    }
+    return `In ${Math.round(diffDays)} days`;
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Social Media Post Automation</h1>
-          <p className="text-gray-600">Monitor your Notion-driven social media posts</p>
-        </div>
+  // Data for the statistics cards
+  const stats = [
+    { label: 'Total Posts', value: counts.total, color: 'text-gray-900 dark:text-white' },
+    { label: 'Pending', value: counts.pending, color: 'text-yellow-600' },
+    { label: 'Posted', value: counts.posted, color: 'text-green-600' },
+    { label: 'Failed', value: counts.failed, color: 'text-red-600' },
+    { label: 'Partial', value: counts.partialSuccess, color: 'text-orange-600' },
+  ];
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="text-3xl font-bold text-gray-900">{counts.total}</div>
-              <div className="ml-4 text-sm font-medium text-gray-500">Total Posts</div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="text-3xl font-bold text-yellow-600">{counts.pending}</div>
-              <div className="ml-4 text-sm font-medium text-gray-500">Pending</div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="text-3xl font-bold text-green-600">{counts.posted}</div>
-              <div className="ml-4 text-sm font-medium text-gray-500">Posted</div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="text-3xl font-bold text-red-600">{counts.failed}</div>
-              <div className="ml-4 text-sm font-medium text-gray-500">Failed</div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <div className="text-3xl font-bold text-orange-600">{counts.partialSuccess}</div>
-              <div className="ml-4 text-sm font-medium text-gray-500">Partial</div>
-            </div>
-          </div>
+  return (
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-900/50 py-8">
+      <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="justify-between md:flex mb-6">
+          <header className="text-left mb-4">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Social Media Post Automation</h1>
+            <p className="text-gray-600 dark:text-gray-300">Monitor and manage your scheduled social media posts.</p>
+          </header>
+          <Button
+            onPress={() => router.push('/posts')}
+            color="primary"
+            variant="ghost"
+          >
+            Create Post
+          </Button>
+        </div>
+        {/* Stats Cards using HeroUI Card component */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-8">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="dark:bg-gray-800">
+              <CardBody>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.label}</p>
+                </div>
+                <p className={`text-3xl font-bold ${stat.color} mt-2`}>{stat.value}</p>
+              </CardBody>
+            </Card>
+          ))}
         </div>
 
         {/* Controls */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Recent Posts</h2>
-          <button
-            onClick={fetchPosts}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
-          >
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Recent Posts</h2>
+          <div className="flex gap-2">
+            
+            <Button
+              onPress={fetchPosts}
+              isDisabled={loading}
+              color="primary"
+              variant="ghost"
+            >
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="text-red-800">{error}</div>
-          </div>
+          <Card className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 p-4 mb-6">
+            <p className="text-red-800 dark:text-red-300">{error}</p>
+          </Card>
         )}
 
         {/* Posts Table */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="text-gray-500">Loading posts...</div>
+            <div className="p-12 text-center flex justify-center items-center">
+              <Spinner label="Loading posts..." color="primary" />
             </div>
-          ) : posts.length === 0 ? (
-            <div className="p-8 text-center">
-              <div className="text-gray-500">No posts found. Create a post in Notion to get started.</div>
+          ) : posts.length === 0 && !error ? (
+            <div className="text-center p-12">
+               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No posts found</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a new post.</p>
+              <div className="mt-6">
+                <Button
+                  color="primary"
+                  onPress={() => router.push('/posts')}
+                >
+                  Create Post
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Post
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Scheduled
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Team
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Platforms
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Post</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Scheduled</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Team</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Platforms</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {posts.map((post) => (
-                    <tr key={post._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900 line-clamp-2 max-w-xs">
-                          {post.post_text}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Notion ID: {post.notion_page_id.substring(0, 8)}...
-                        </div>
+                    <tr key={post._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-6 py-4 max-w-xs">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">{post.post_text}</p>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatDateTime(post.scheduled_date)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {formatScheduledTime(post.scheduled_date)}
-                        </div>
+                        <p className="text-sm text-gray-900 dark:text-gray-200">{formatDateTime(post.scheduled_date)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatScheduledTime(post.scheduled_date)}</p>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {post.team || 'N/A'}
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{post.team || 'N/A'}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
                           {post.platforms.map((platform) => (
-                            <span 
-                              key={platform} 
-                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                            >
-                              {platform}
-                            </span>
+                            <Chip key={platform} color="default" variant="flat" size="sm">{platform}</Chip>
                           ))}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(post.status)}`}>
+                        <Chip color={getStatusColor(post.status)} variant="flat" size="md" className="capitalize">
                           {post.status.replace('_', ' ')}
-                        </span>
+                        </Chip>
                       </td>
                     </tr>
                   ))}
@@ -239,10 +241,9 @@ export default function Dashboard() {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500">
+        <footer className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>Posts are automatically processed when their scheduled time arrives.</p>
-          {/* <LastUpdatedTimestamp /> */}
-        </div>
+        </footer>
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSocialMediaPostsCollection, SocialMediaPost } from '@/models/SocialMediaPost';
 import { postToSocialMedia } from '@/services/socialMediaService';
-import { updateNotionPageStatus } from '@/services/notionService';
 
 export async function GET() {
   try {
@@ -28,7 +27,6 @@ export async function GET() {
     // Process each pending post
     const results: Array<{
       postId: string;
-      notionPageId: string;
       status: string | undefined;
       links?: Record<string, string>;
       success: boolean;
@@ -51,16 +49,10 @@ export async function GET() {
           { $set: updateData }
         );
 
-        // Update Notion page status
-        await updateNotionPageStatus(
-          post.notion_page_id,
-          updateData.status || 'failed',
-          updateData.post_links
-        );
+        
 
         results.push({
           postId: post._id.toString(),
-          notionPageId: post.notion_page_id,
           status: updateData.status,
           links: updateData.post_links,
           success: postResult.success,
@@ -82,7 +74,6 @@ export async function GET() {
 
         results.push({
           postId: post._id.toString(),
-          notionPageId: post.notion_page_id,
           status: 'failed',
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'

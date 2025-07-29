@@ -60,29 +60,6 @@ RawContentLength  : 41
 
 
 
-PS C:\Users\mikes\Alleyroads - Skypoint\SOFTWARE-BUILT-SKYPOINT\nextjs-post-auto> Invoke-WebRequest -Uri "http://localhost:3000/api/notion-webhook" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"page_id":"test-page-123","page":{"name":"pending"}},"Platforms":{"multi_select":[{"name":"facebook"},{"name":"linkedin"}]}}}}';db8e433f-0181-4928-8d3f-516ec257e995":[]},"Scheduled Date":{"date":{"start":"2025-07-29T12:15:00.000Z"}},"Team":{"select":{"name":"Marketing"}},"Post Notes":{"rich_text":[{"plain_text":"Test post for automation workflow"}]},"Status":{"select":{"name":"pending"}},"Platforms":{"multi_select":[{"name":"facebook"},{"name":"linkedin"}]}}}}'
-
-
-StatusCode        : 200
-StatusDescription : OK
-Content           : {"message":"Post received and saved successfully","postId":"6888bb732ced86f0cbd3cfab"}
-RawContent        : HTTP/1.1 200 OK
-                    vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch
-                    Connection: keep-alive
-                    Keep-Alive: timeout=5
-                    Transfer-Encoding: chunked
-                    Content-Type: applica...
-Forms             : {}
-Headers           : {[vary, RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch],
-                    [Connection, keep-alive], [Keep-Alive, timeout=5], [Transfer-Encoding, chunked]...}
-Images            : {}
-InputFields       : {}
-Links             : {}
-ParsedHtml        : mshtml.HTMLDocumentClass
-RawContentLength  : 86
-
-
-
 PS C:\Users\mikes\Alleyroads - Skypoint\SOFTWARE-BUILT-SKYPOINT\nextjs-post-auto>
 
 
