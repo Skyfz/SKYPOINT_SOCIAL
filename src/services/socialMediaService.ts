@@ -151,7 +151,7 @@ async function postToLinkedIn(post: SocialMediaPost): Promise<PostResult> {
         );
         
         if (!uploadSuccess) {
-          return { success: false, error: 'Failed to upload media to LinkedIn' };
+          return { success: false, error: 'Failed to upload media to LinkedIn using api' };
         }
       } catch (downloadError) {
         console.error('Media download error:', downloadError);
