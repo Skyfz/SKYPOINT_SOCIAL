@@ -1,9 +1,5 @@
 import { Client } from '@notionhq/client';
-import { PropertyValue } from '@notionhq/client/build/src/api-types';
-
-interface NotionProperties {
-  [key: string]: PropertyValue;
-}
+import { UpdatePageParameters } from '@notionhq/client/build/src/api-endpoints';
 
 // Initialize Notion client
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
@@ -20,7 +16,7 @@ export async function updateNotionPageStatus(
 ): Promise<UpdateResult> {
   try {
     // Prepare properties to update
-    const properties: Record<string, unknown> = {};
+    const properties: NonNullable<UpdatePageParameters['properties']> = {};
     
     // Update Status property if it exists
     if (status) {
