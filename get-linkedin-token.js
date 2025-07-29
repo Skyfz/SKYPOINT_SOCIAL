@@ -14,8 +14,8 @@ const url = require('url');
 const querystring = require('querystring');
 
 // === REPLACE THESE WITH YOUR ACTUAL LINKEDIN APP CREDENTIALS ===
-const CLIENT_ID = '77j75tl5i0ep2e';
-const CLIENT_SECRET = 'WPL_AP1.gHJGvE2e2nO8XhyZ.svNlRQ==';
+const CLIENT_ID = '';
+const CLIENT_SECRET = '';
 // =============================================================
 
 const REDIRECT_URI = 'http://localhost:3001/callback';
