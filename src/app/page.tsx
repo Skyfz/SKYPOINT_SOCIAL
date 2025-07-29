@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import LastUpdatedTimestamp from '@/components/LastUpdatedTimestamp';
 
 interface Post {
   _id: string;

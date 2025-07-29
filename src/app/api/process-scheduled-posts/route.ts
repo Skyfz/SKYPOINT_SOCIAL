@@ -27,7 +27,7 @@ export async function GET() {
 
     // Process each pending post
     const results: Array<{
-      postId: any;
+      postId: string;
       notionPageId: string;
       status: string | undefined;
       links?: Record<string, string>;
@@ -59,7 +59,7 @@ export async function GET() {
         );
 
         results.push({
-          postId: post._id,
+          postId: post._id.toString(),
           notionPageId: post.notion_page_id,
           status: updateData.status,
           links: updateData.post_links,
@@ -81,7 +81,7 @@ export async function GET() {
         );
 
         results.push({
-          postId: post._id,
+          postId: post._id.toString(),
           notionPageId: post.notion_page_id,
           status: 'failed',
           success: false,
