@@ -1,9 +1,29 @@
+// src/app/api/posts/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getSocialMediaPostsCollection, SocialMediaPost } from '@/models/SocialMediaPost';
 import { ObjectId } from 'mongodb';
 import { v2 as cloudinary } from 'cloudinary';
-// import { formidable } from 'formidable';
+import { formidable } from 'formidable';
 
+// --- Cloudinary Configuration ---
+// Place this at the top of your file
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
+
+// Helper function to upload a file to Cloudinary
+async function uploadToCloudinary(filePath: string): Promise<string> {
+  const result = await cloudinary.uploader.upload(filePath, {
+    folder: 'social_media_posts', // Optional: store in a specific folder
+  });
+  return result.secure_url; // Return the secure URL of the uploaded file
+}
+
+// --- Your Existing GET Function (Unchanged) ---
 export async function GET(request: NextRequest) {
   try {
     const postsCollection = await getSocialMediaPostsCollection();
@@ -53,64 +73,82 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// --- NEW POST Function with File Upload Logic ---
+// This replaces your old POST function entirely
 export async function POST(request: NextRequest) {
   try {
-    const postsCollection = await getSocialMediaPostsCollection();
-    
-    // Parse the request body
-    const body = await request.json();
-    
-    // Validate required fields
-    if (!body.post_text || !body.scheduled_date || !body.platforms || !Array.isArray(body.platforms)) {
-      return NextResponse.json(
-        { error: 'Missing required fields: post_text, scheduled_date, and platforms are required' },
-        { status: 400 }
-      );
+    // formidable needs the raw request, not the parsed body
+    const formData = await request.formData();
+    const postDataJSON = formData.get('postData') as string;
+    const mediaFiles = formData.getAll('media') as File[];
+
+    if (!postDataJSON) {
+      return NextResponse.json({ error: 'Post data is missing' }, { status: 400 });
     }
-    
-    // Create new post object
+    const postData = JSON.parse(postDataJSON);
+
+    // 2. Upload media files to Cloudinary
+    const mediaUrls: string[] = [];
+    if (mediaFiles && mediaFiles.length > 0) {
+      for (const file of mediaFiles) {
+        // Convert file to a buffer to upload
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // Upload the buffer to Cloudinary
+        const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            { folder: 'social_media_posts' },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result as { secure_url: string });
+            }
+          ).end(buffer);
+        });
+        
+        mediaUrls.push(result.secure_url);
+      }
+    }
+
+    // 3. Prepare the new post object for the database
+    const postsCollection = await getSocialMediaPostsCollection();
     const newPost: Omit<SocialMediaPost, '_id'> = {
-      post_text: body.post_text,
-      scheduled_date: new Date(body.scheduled_date),
-      team: body.team || undefined,
-      post_notes: body.post_notes || undefined,
-      post_media: body.post_media || undefined,
+      ...postData,
+      scheduled_date: new Date(postData.scheduled_date),
+      post_media: mediaUrls, // Use the URLs from Cloudinary
       status: 'pending',
-      platforms: body.platforms,
       post_links: {},
       created_at: new Date(),
-      updated_at: new Date()
+      updated_at: new Date(),
     };
-    
-    // Insert the new post
+
+    // 4. Insert into the database
     const result = await postsCollection.insertOne(newPost as SocialMediaPost);
-    
-    // Fetch the created post
     const createdPost = await postsCollection.findOne({ _id: result.insertedId });
-    
+
     if (!createdPost) {
       throw new Error('Failed to fetch created post');
     }
-    
+
     return NextResponse.json({
-      post: {
-        ...createdPost,
-        _id: createdPost._id.toString(),
-        created_at: createdPost.created_at.toISOString(),
-        updated_at: createdPost.updated_at.toISOString(),
-        scheduled_date: createdPost.scheduled_date.toISOString()
-      },
-      message: 'Post created successfully'
-    }, { status: 201 });
+        post: {
+          ...createdPost,
+          _id: createdPost._id.toString(),
+          created_at: createdPost.created_at.toISOString(),
+          updated_at: createdPost.updated_at.toISOString(),
+          scheduled_date: createdPost.scheduled_date.toISOString(),
+        },
+        message: 'Post created successfully'
+      }, { status: 201 });
+
   } catch (error) {
     console.error('Error creating post:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
+
+// --- Your Existing PUT Function (Unchanged) ---
 export async function PUT(request: NextRequest) {
   try {
     const postsCollection = await getSocialMediaPostsCollection();
@@ -186,6 +224,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+// --- Your Existing DELETE Function (Unchanged) ---
 export async function DELETE(request: NextRequest) {
   try {
     const postsCollection = await getSocialMediaPostsCollection();

@@ -1,34 +1,37 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Button, Textarea, Select, SelectItem, DatePicker, Card, CardBody, CardHeader, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Input , Selection} from '@heroui/react';
-import { Send, Plus, Trash2, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
+import { Button, Textarea, Select, SelectItem, DatePicker, Card, CardBody, CardHeader, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Input, type Selection } from '@heroui/react';
+import { Send, Plus, Trash2 } from 'lucide-react';
 import { parseAbsoluteToLocal, ZonedDateTime } from '@internationalized/date';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // Import Next.js Image component
 
-// Interface for the Post data structure
+// --- UPDATE THE INTERFACE ---
+// We add `mediaFiles` to hold the actual file objects for uploading.
 interface Post {
   _id?: string;
   post_text: string;
   scheduled_date: Date | null;
   team?: string;
   platforms: string[];
-  post_media?: string[]; // Array of media URLs/paths
+  post_media?: string[]; // This will now be populated by the server response
+  mediaFiles?: File[];   // This holds the files selected by the user
   post_notes?: string;
   status?: 'pending' | 'posted' | 'failed' | 'partial_success';
 }
 
 // Main Component for Creating and Managing Posts
 export default function PostManager() {
-  // State for the post being created
+  // --- UPDATE THE INITIAL STATE ---
   const [post, setPost] = useState<Post>({
     post_text: '',
-    scheduled_date: null, 
+    scheduled_date: null,
     platforms: [],
-    post_media: []
+    mediaFiles: [], // Initialize as an empty array
   });
 
-  // UI state
+  // --- Other state remains the same ---
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
@@ -43,7 +46,6 @@ export default function PostManager() {
     setIsMounted(true);
   }, []);
 
-  // --- Platform Options ---
   const platformOptions = [
     { key: 'linkedin', label: 'LinkedIn' },
     { key: 'facebook', label: 'Facebook' },
@@ -54,6 +56,7 @@ export default function PostManager() {
 
   const handleUploadButtonClick = () => fileInputRef.current?.click();
 
+  // This function is now correctly typed
   const handlePlatformChange = (keys: Selection) => {
     setPost({ ...post, platforms: Array.from(keys) as string[] });
   };
@@ -64,64 +67,89 @@ export default function PostManager() {
     }
   };
 
-  // Handles new media files being selected
+  // --- UPDATED: handleMediaUpload ---
+  // This now stores the actual File objects in state, not just placeholder paths.
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const newFileUrls = Array.from(files).map(file => URL.createObjectURL(file));
-      const newPlaceholderPaths = Array.from(files).map(file => `uploads/${file.name}`);
-      
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      // Create temporary URLs for previewing the images
+      const newFileUrls = newFiles.map(file => URL.createObjectURL(file));
+
       setPreviewUrls(prev => [...prev, ...newFileUrls]);
       setPost(prev => ({
         ...prev,
-        post_media: [...(prev.post_media || []), ...newPlaceholderPaths]
+        mediaFiles: [...(prev.mediaFiles || []), ...newFiles]
       }));
     }
   };
 
-  // Removes a selected media item
+  // --- UPDATED: removeMedia ---
+  // This now removes the file from both the preview URLs and the File object array.
   const removeMedia = (indexToRemove: number) => {
-    URL.revokeObjectURL(previewUrls[indexToRemove]); // Clean up object URL
+    // Revoke the object URL to prevent memory leaks
+    URL.revokeObjectURL(previewUrls[indexToRemove]);
+
     setPreviewUrls(prev => prev.filter((_, index) => index !== indexToRemove));
     setPost(prev => ({
       ...prev,
-      post_media: prev.post_media?.filter((_, index) => index !== indexToRemove)
+      mediaFiles: prev.mediaFiles?.filter((_, index) => index !== indexToRemove)
     }));
   };
 
-  // Main form submission logic
+  // --- UPDATED: handleSubmit ---
+  // This is the biggest change. It now uses FormData to send files and data.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!post.scheduled_date) {
-        setSubmitMessage({ type: 'error', message: 'Please select a schedule date.' });
-        return;
+    if (!post.scheduled_date || post.platforms.length === 0) {
+      setSubmitMessage({ type: 'error', message: 'Please select a date and at least one platform.' });
+      return;
     }
     setIsSubmitting(true);
     setSubmitMessage(null);
 
+    // 1. Create a FormData object
+    const formData = new FormData();
+
+    // 2. Append the text data as a single JSON string
+    formData.append('postData', JSON.stringify({
+      post_text: post.post_text,
+      scheduled_date: post.scheduled_date.toISOString(),
+      platforms: post.platforms,
+      post_notes: post.post_notes,
+      team: post.team,
+    }));
+
+    // 3. Append each media file to the FormData object
+    if (post.mediaFiles) {
+      post.mediaFiles.forEach(file => {
+        formData.append('media', file);
+      });
+    }
+
     try {
+      // 4. Send the FormData to the server.
+      // The browser will automatically set the correct 'Content-Type' for multipart/form-data.
       const response = await fetch('/api/posts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...post,
-          scheduled_date: post.scheduled_date.toISOString()
-        })
+        body: formData,
       });
+
       const data = await response.json();
 
       if (response.ok) {
         setSubmitMessage({ type: 'success', message: 'Post scheduled successfully!' });
         onOpen();
-        // Reset form
-        setPost({ post_text: '', scheduled_date: new Date(), platforms: [], post_media: [] });
+        // Reset form completely
+        setPost({ post_text: '', scheduled_date: new Date(), platforms: [], mediaFiles: [] });
         setPreviewUrls([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
       } else {
         setSubmitMessage({ type: 'error', message: data.error || 'Failed to schedule post' });
       }
     } catch (error) {
-      setSubmitMessage({ type: 'error', message: 'Network error. Please try again.' });
+      console.error("Submission failed:", error);
+      setSubmitMessage({ type: 'error', message: 'A network error occurred. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -131,19 +159,19 @@ export default function PostManager() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-4xl lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex mx-auto justify-between mb-2">
-            <header className="text-left mb-4">
-              <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Create Social Media Post</h1>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">Schedule your social media content with ease.</p>
-            </header>
-            <Button
-              onPress={() => router.push('/')}
-              color="primary"
-              variant="ghost"
-            >
-              Home
-            </Button>
-          </div>
+        <div className="flex mx-auto justify-between mb-2">
+          <header className="text-left mb-4">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Create Social Media Post</h1>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">Schedule your social media content with ease.</p>
+          </header>
+          <Button
+            onPress={() => router.push('/')}
+            color="primary"
+            variant="ghost"
+          >
+            Home
+          </Button>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Post Creation Form */}
@@ -170,13 +198,14 @@ export default function PostManager() {
                     {previewUrls.length > 0 && (
                       <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                         {previewUrls.map((url, index) => {
-                          const isVideo = post.post_media?.[index]?.match(/\.(mp4|mov|avi|webm)$/i);
+                          const isVideo = post.mediaFiles?.[index]?.type.startsWith('video/');
                           return (
                             <div key={url} className="relative group aspect-square">
                               {isVideo ? (
                                 <video src={url} controls className="w-full h-full object-cover rounded-lg" />
                               ) : (
-                                <img src={url} alt={`Preview ${index + 1}`} className="w-full h-full object-cover rounded-lg" />
+                                // Using next/image for optimized images
+                                <Image src={url} alt={`Preview ${index + 1}`} width={200} height={200} className="w-full h-full object-cover rounded-lg" />
                               )}
                               <Button isIconOnly color="danger" size="sm" variant="solid" className="absolute top-1 right-1 opacity-50 group-hover:opacity-100 transition-opacity z-10" onClick={() => removeMedia(index)}>
                                 <Trash2 className="w-4 h-4" />
@@ -247,7 +276,7 @@ export default function PostManager() {
                     <div className="mt-3 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
                       {/* Single Image */}
                       {previewUrls.length === 1 && (
-                        <img src={previewUrls[0]} alt="Preview" className="w-full h-auto object-cover" />
+                        <Image src={previewUrls[0]} alt="Preview" width={500} height={500} className="w-full h-auto object-cover" />
                       )}
                       {/* Multiple Images */}
                       {previewUrls.length > 1 && (
@@ -258,7 +287,7 @@ export default function PostManager() {
                         }`}>
                           {previewUrls.slice(0, 4).map((url, index) => (
                             <div key={index} className="relative aspect-square bg-gray-100 dark:bg-gray-700">
-                              <img src={url} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                              <Image src={url} alt={`Preview ${index + 1}`} width={250} height={250} className="w-full h-full object-cover" />
                               {previewUrls.length > 4 && index === 3 && (
                                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
                                   <span className="text-white font-bold text-2xl">+{previewUrls.length - 4}</span>
