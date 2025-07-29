@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Button, Textarea, Select, SelectItem, DatePicker, Card, CardBody, CardHeader, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Input } from '@heroui/react';
+import { Button, Textarea, Select, SelectItem, DatePicker, Card, CardBody, CardHeader, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Input , Selection} from '@heroui/react';
 import { Send, Plus, Trash2, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { parseAbsoluteToLocal, ZonedDateTime } from '@internationalized/date';
 import { useRouter } from 'next/navigation';
@@ -54,7 +54,7 @@ export default function PostManager() {
 
   const handleUploadButtonClick = () => fileInputRef.current?.click();
 
-  const handlePlatformChange = (keys: any) => {
+  const handlePlatformChange = (keys: Selection) => {
     setPost({ ...post, platforms: Array.from(keys) as string[] });
   };
 
