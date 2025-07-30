@@ -72,10 +72,10 @@ export async function GET() {
         // 3. Update the post's status to 'processing'.
         // This prevents the post from being picked up again by the next cron run.
         // The final status ('posted' or 'failed') will be set by your new cleanup endpoint.
-        // await postsCollection.updateOne(
-        //   { _id: post._id },
-        //   { $set: { status: 'partial_success', updated_at: new Date() } }
-        // );
+        await postsCollection.updateOne(
+          { _id: post._id },
+          { $set: { status: 'partial_success', updated_at: new Date() } }
+        );
 
         results.push({
           postId: post._id.toString(),
