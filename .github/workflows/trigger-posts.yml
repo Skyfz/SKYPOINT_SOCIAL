@@ -11,4 +11,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call the API endpoint to trigger posts
-        run: curl --fail --request POST 'https://skypoint-social.vercel.app/api/trigger-posts'
+        run: curl --fail 'https://skypoint-social.vercel.app/api/trigger-posts'
