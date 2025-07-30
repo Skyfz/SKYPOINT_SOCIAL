@@ -12,6 +12,7 @@ export interface SocialMediaPost {
   platforms: string[];
   created_at: Date;
   updated_at: Date;
+  failure_reason?: string;
 }
 
 export async function getSocialMediaPostsCollection(): Promise<Collection<SocialMediaPost>> {

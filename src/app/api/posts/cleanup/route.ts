@@ -1,7 +1,7 @@
 // src/app/api/posts/cleanup/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSocialMediaPostsCollection } from '@/models/SocialMediaPost';
+import { getSocialMediaPostsCollection, SocialMediaPost } from '@/models/SocialMediaPost';
 import { ObjectId } from 'mongodb';
 
 /**
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // If no URLs were returned, the post failed.
     const finalStatus = Object.keys(post_links).length > 0 ? 'posted' : 'failed';
     
-    const updateFields: any = {
+    const updateFields: Partial<SocialMediaPost>  = {
         status: finalStatus,
         updated_at: new Date(),
         post_links: post_links
