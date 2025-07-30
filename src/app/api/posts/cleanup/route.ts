@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // The body from Make.com should contain the original post_id and the resulting URLs
-    const { post_id, facebook_url, linkedin_url, instagram_url, x_url } = body;
+    const { post_id, facebook_url, linkedin_url, instagram_url } = body;
 
     if (!post_id) {
       return NextResponse.json({ error: 'post_id is required from Make.com' }, { status: 400 });
@@ -31,7 +31,6 @@ export async function POST(request: NextRequest) {
     if (facebook_url) post_links.facebook = facebook_url;
     if (linkedin_url) post_links.linkedin = linkedin_url;
     if (instagram_url) post_links.instagram = instagram_url;
-    if (x_url) post_links.x = x_url;
 
     // Determine the final status. If at least one URL was returned, we'll call it 'posted'.
     // If no URLs were returned, the post failed.
