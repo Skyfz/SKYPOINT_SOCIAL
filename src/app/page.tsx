@@ -158,7 +158,7 @@ export default function Dashboard() {
             )}
             {dataSource === 'live' && (
               <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full dark:bg-green-900 dark:text-green-300">
-                Live Data
+                Live
               </span>
             )}
           </div>
@@ -174,10 +174,10 @@ export default function Dashboard() {
         </header>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8 md:mb-10">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5 mb-8 md:mb-10">
           {stats.map((stat) => (
             <div key={stat.label} className="bg-white dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between space-x-2">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{stat.label}</p>
                 <stat.Icon className={`h-6 w-6 ${stat.color}`} />
               </div>
