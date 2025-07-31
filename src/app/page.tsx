@@ -4,9 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Clock, CheckCircle, XCircle, AlertTriangle, Plus, RefreshCw, Twitter, Facebook, Instagram, Linkedin } from 'lucide-react';
 
-// --- Helper Components & Icons ---
-// Using lucide-react for robust and easy-to-use icons.
-
+// --- Helper Components & Icons (Unchanged) ---
 const PlatformIcon = ({ platform, className }: { platform: string; className: string }) => {
     const platformName = platform.toLowerCase();
     switch (platformName) {
@@ -24,7 +22,7 @@ const PlatformIcon = ({ platform, className }: { platform: string; className: st
 };
 
 
-// --- Interfaces (Unchanged) ---
+// --- Interfaces (Updated) ---
 interface Post {
   _id: string;
   post_text: string;
@@ -35,7 +33,7 @@ interface Post {
   created_at: string;
   updated_at: string;
   post_notes?: string;
-  post_media?: string;
+  post_media?: string[]; // --- CHANGE: Corrected type to match database schema (array of strings)
 }
 
 interface Counts {
@@ -54,27 +52,27 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const [dataSource, setDataSource] = useState<'mock' | 'live' | null>(null); // New state for data source indicator
+  const [dataSource, setDataSource] = useState<'mock' | 'live' | null>(null);
 
   // --- Data Fetching Logic (with Indicator) ---
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      setDataSource(null); // Reset data source on each fetch
+      setDataSource(null);
       
-      // MOCK DATA for demonstration. The `status` fields are now correctly typed.
-      // To use your live API, comment out this block and uncomment the one below.
+      // MOCK DATA for demonstration.
       await new Promise(resolve => setTimeout(resolve, 1000));
+       // --- CHANGE: Updated mock data to use `post_media` and longer text
       const mockPosts: Post[] = [
-        { _id: '1', post_text: "Excited to announce our new product launch next week! Stay tuned for more details. #NewProduct #Innovation", scheduled_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), team: 'Marketing', status: 'pending', platforms: ['Twitter', 'Facebook'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { _id: '2', post_text: "Our weekly team meeting recap is now available on the blog. Check it out to see what we've been working on.", scheduled_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), team: 'Internal Comms', status: 'posted', platforms: ['LinkedIn'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { _id: '3', post_text: "A critical API update failed to post to Instagram. Investigating the issue now.", scheduled_date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), team: 'DevOps', status: 'failed', platforms: ['Instagram'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { _id: '4', post_text: "This post was successful on Twitter, but failed on Facebook due to an authentication error.", scheduled_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), team: 'Marketing', status: 'partial_success', platforms: ['Twitter', 'Facebook'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { _id: '1', post_text: "Excited to announce our new product launch next week! We've been working tirelessly to bring you something truly innovative. This is going to change everything. Stay tuned for more details. #NewProduct #Innovation", scheduled_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), team: 'Marketing', status: 'pending', platforms: ['Twitter', 'Facebook'], created_at: new Date().toISOString(), updated_at: new Date().toISOString(), post_media: ['https://placehold.co/600x400/3B82F6/FFFFFF?text=Launch+Day!'] },
+        { _id: '2', post_text: "Our weekly team meeting recap is now available on the blog. Check it out to see what we've been working on, including major progress on Project Phoenix and our Q3 goals. It's a deep dive into our current roadmap.", scheduled_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), team: 'Internal Comms', status: 'posted', platforms: ['LinkedIn'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { _id: '3', post_text: "A critical API update failed to post to Instagram. The engineering team is actively investigating the issue and we hope to have a resolution shortly. We apologize for any inconvenience this may cause.", scheduled_date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), team: 'DevOps', status: 'failed', platforms: ['Instagram'], created_at: new Date().toISOString(), updated_at: new Date().toISOString(), post_media: ['https://placehold.co/600x400/EF4444/FFFFFF?text=API+Error'] },
+        { _id: '4', post_text: "This post was successful on Twitter, but failed on Facebook due to an authentication error. We'll be retrying the Facebook post once the connection is re-established. Thanks for your patience.", scheduled_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), team: 'Marketing', status: 'partial_success', platforms: ['Twitter', 'Facebook'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
       ];
       setPosts(mockPosts);
       setCounts({ total: 4, pending: 1, posted: 1, failed: 1, partialSuccess: 1 });
       setError(null);
-      setDataSource('mock'); // Set data source to 'mock'
+      setDataSource('mock');
 
       
       // Your original, working fetch logic for a real API endpoint
@@ -85,7 +83,7 @@ export default function Dashboard() {
         setPosts(data.posts);
         setCounts(data.counts);
         setError(null);
-        setDataSource('live'); // Set data source to 'live'
+        setDataSource('live');
       } else {
         setError(data.error || 'Failed to fetch posts');
       }
@@ -134,7 +132,7 @@ export default function Dashboard() {
     return `in ${Math.round(diffDays)}d`;
   };
 
-  // --- Data for UI Elements ---
+  // --- Data for UI Elements (Unchanged) ---
   const stats = [
     { label: 'Total Posts', value: counts.total, Icon: FileText, color: 'text-gray-900 dark:text-white' },
     { label: 'Pending', value: counts.pending, Icon: Clock, color: 'text-yellow-600 dark:text-yellow-400' },
@@ -148,7 +146,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         
-        {/* Header with Data Source Indicator */}
+        {/* Header with Data Source Indicator (Unchanged) */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-white">Post Dashboard</h1>
@@ -174,7 +172,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Stats Cards */}
+        {/* Stats Cards (Unchanged) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5 mb-8 md:mb-10">
           {stats.map((stat) => (
             <div key={stat.label} className="bg-white dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -199,15 +197,22 @@ export default function Dashboard() {
           )}
 
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm animate-pulse">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-4"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6 mb-4"></div>
-                  <div className="flex justify-between items-center">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-1/3"></div>
+                <div key={i} className="bg-white dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm animate-pulse flex flex-col">
+                  <div className="p-5 flex-grow flex items-start space-x-4">
+                    <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg flex-shrink-0"></div>
+                    <div className="flex-grow space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-200 dark:border-gray-800 p-5 bg-gray-50/50 dark:bg-gray-900/50">
+                    <div className="flex justify-between items-center">
+                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -227,24 +232,47 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {posts.map((post) => {
                 const statusInfo = getStatusInfo(post.status);
+                const firstImage = post.post_media && post.post_media.length > 0 ? post.post_media[0] : null;
+
                 return (
                   <div key={post._id} className="bg-white dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm hover:border-blue-500 dark:hover:border-blue-500 transition-all duration-300 flex flex-col">
-                    <div className="p-5 flex-grow">
-                      <p className="text-gray-800 dark:text-gray-200 leading-relaxed line-clamp-3">{post.post_text}</p>
+                    
+                    <div className="p-5 flex-grow flex items-start space-x-4">
+                        {/* Post Image */}
+                        {firstImage && (
+                            <img 
+                            src={firstImage} 
+                            alt="Post media" 
+                            className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.onerror = null; 
+                                target.src = 'https://placehold.co/200x200/CCCCCC/FFFFFF?text=Error';
+                            }}
+                            />
+                        )}
+                        
+                        {/* Post Content */}
+                        {/* --- CHANGE: Added min-w-0 to prevent text overflow in flexbox --- */}
+                        <div className="flex-grow min-w-0">
+                            <p className="text-gray-800 dark:text-gray-200 leading-relaxed line-clamp-4 break-words">{post.post_text}</p>
+                        </div>
                     </div>
-                    <div className="border-t border-gray-200 dark:border-gray-800 p-5 bg-gray-50/50 dark:bg-gray-900/50 rounded-b-xl">
+
+                    {/* Post Footer */}
+                    <div className="border-t border-gray-200 dark:border-gray-800 p-5 bg-gray-50/50 dark:bg-gray-900/50">
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 flex-wrap">
                           <div className="flex items-center gap-2">
                             {post.platforms.map((platform) => (
                               <PlatformIcon key={platform} platform={platform} className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                             ))}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                             {formatDateTime(post.scheduled_date)} ({formatScheduledTime(post.scheduled_date,post.status)})
+                               {formatDateTime(post.scheduled_date)} ({formatScheduledTime(post.scheduled_date,post.status)})
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <div className={`h-2.5 w-2.5 rounded-full ${statusInfo.dotColor}`}></div>
                           <span className={`text-sm font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
                         </div>
@@ -257,7 +285,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer (Unchanged) */}
         <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>Posts are processed automatically at their scheduled time.</p>
         </footer>
