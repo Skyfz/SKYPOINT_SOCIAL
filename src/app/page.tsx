@@ -119,7 +119,7 @@ export default function Dashboard() {
     return new Date(dateString).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatScheduledTime = (scheduledDate: string) => {
+  const formatScheduledTime = (scheduledDate: string, status:string) => {
     const now = new Date();
     const scheduled = new Date(scheduledDate);
     const diffMs = scheduled.getTime() - now.getTime();
@@ -127,7 +127,8 @@ export default function Dashboard() {
     const diffHours = diffMs / (1000 * 60 * 60);
     const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
-    if (diffMs < 0) return `Overdue`;
+    if ((diffMs < 0)&&(status!="posted")) return `Overdue`;
+    if ((diffMs < 0)&&(status=="posted")) return `Done`;
     if (diffHours < 1) return `in ${Math.round(diffHours * 60)}m`;
     if (diffDays < 1) return `in ${Math.round(diffHours)}h`;
     return `in ${Math.round(diffDays)}d`;
@@ -240,7 +241,7 @@ export default function Dashboard() {
                             ))}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                             {formatDateTime(post.scheduled_date)} ({formatScheduledTime(post.scheduled_date)})
+                             {formatDateTime(post.scheduled_date)} ({formatScheduledTime(post.scheduled_date,post.status)})
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
