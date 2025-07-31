@@ -66,7 +66,7 @@ export default function PostManager() {
     { key: 'linkedin', label: 'LinkedIn' },
     { key: 'facebook', label: 'Facebook' },
     { key: 'instagram', label: 'Instagram' },
-    { key: 'twitter', label: 'Twitter' },
+    // { key: 'twitter', label: 'Twitter' },
   ];
 
   const handlePlatformToggle = (platformKey: string) => {
