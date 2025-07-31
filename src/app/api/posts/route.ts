@@ -73,12 +73,25 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// --- NEW POST Function with File Upload Logic ---
-// This replaces your old POST function entirely
+// --- SECURED POST Function with File Upload Logic ---
 export async function POST(request: NextRequest) {
   try {
-    // formidable needs the raw request, not the parsed body
     const formData = await request.formData();
+    
+    // --- 1. AUTHORIZATION CHECK ---
+    const submittedKey = formData.get('secretKey') as string;
+    const serverKey = process.env.POST_SECRET_KEY;
+
+    if (!serverKey) {
+        console.error('CRITICAL: POST_SECRET_KEY is not set on the server.');
+        return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+    }
+
+    if (submittedKey !== serverKey) {
+        return NextResponse.json({ error: 'Unauthorized: Invalid secret key.' }, { status: 401 });
+    }
+
+    // --- 2. Process the rest of the form data (as before) ---
     const postDataJSON = formData.get('postData') as string;
     const mediaFiles = formData.getAll('media') as File[];
 
@@ -87,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
     const postData = JSON.parse(postDataJSON);
 
-    // 2. Upload media files to Cloudinary
+    // 3. Upload media files to Cloudinary
     const mediaUrls: string[] = [];
     if (mediaFiles && mediaFiles.length > 0) {
       for (const file of mediaFiles) {
@@ -110,7 +123,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Prepare the new post object for the database
+    // 4. Prepare the new post object for the database
     const postsCollection = await getSocialMediaPostsCollection();
     const newPost: Omit<SocialMediaPost, '_id'> = {
       ...postData,
@@ -122,7 +135,7 @@ export async function POST(request: NextRequest) {
       updated_at: new Date(),
     };
 
-    // 4. Insert into the database
+    // 5. Insert into the database
     const result = await postsCollection.insertOne(newPost as SocialMediaPost);
     const createdPost = await postsCollection.findOne({ _id: result.insertedId });
 
