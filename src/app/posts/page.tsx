@@ -16,7 +16,13 @@ interface Post {
   post_media?: string[];
   mediaFiles?: File[];
   post_notes?: string;
-  status?: 'pending' | 'posted' | 'failed' | 'partial_success';
+  status?: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success';
+}
+
+// --- Interface for tracking deleted media ---
+interface DeletedMedia {
+  url: string;
+  index: number; // Index in the original post_media array
 }
 
 // --- FormattedPostText Helper Component ---
@@ -53,14 +59,18 @@ export default function PostManager() {
     platforms: [],
     mediaFiles: [],
   });
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
   const [secretKey, setSecretKey] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [deletedMedia, setDeletedMedia] = useState<DeletedMedia[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   const platformOptions = [
     { key: 'linkedin', label: 'LinkedIn' },
@@ -89,56 +99,189 @@ export default function PostManager() {
   };
 
   const removeMedia = (indexToRemove: number) => {
-    URL.revokeObjectURL(previewUrls[indexToRemove]);
+    // Check if this is an existing media (from post_media) or a new upload
+    const mediaUrl = previewUrls[indexToRemove];
+    
+    // Find if this URL exists in the original post_media array
+    const originalMediaIndex = post.post_media?.indexOf(mediaUrl);
+    
+    if (originalMediaIndex !== undefined && originalMediaIndex >= 0) {
+      // This is an existing media, mark it for deletion
+      setDeletedMedia(prev => [...prev, { url: mediaUrl, index: originalMediaIndex }]);
+    } else {
+      // This is a new upload, remove it from mediaFiles
+      setPost(prev => ({ ...prev, mediaFiles: prev.mediaFiles?.filter((_, index) => index !== (indexToRemove - (post.post_media?.length || 0))) }));
+    }
+    
+    // Remove from preview
+    URL.revokeObjectURL(mediaUrl);
     setPreviewUrls(prev => prev.filter((_, index) => index !== indexToRemove));
-    setPost(prev => ({ ...prev, mediaFiles: prev.mediaFiles?.filter((_, index) => index !== indexToRemove) }));
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const editPostId = urlParams.get('edit');
+    
+    if (editPostId) {
+      setEditingPostId(editPostId);
+      fetchPostData(editPostId);
+    }
+  }, []);
+
+  const fetchPostData = async (postId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/posts`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        const postToEdit = data.posts.find((p: Post) => p._id === postId);
+        if (postToEdit) {
+          if (postToEdit.post_media && postToEdit.post_media.length > 0) {
+            setPreviewUrls(postToEdit.post_media);
+          }
+          setPost({
+            ...postToEdit,
+            scheduled_date: new Date(postToEdit.scheduled_date).toISOString().slice(0, 16),
+          });
+          // Reset deleted media state when loading a post for editing
+          setDeletedMedia([]);
+        } else {
+          setSubmitMessage({ type: 'error', message: 'Post not found.' });
+        }
+      } else {
+        setSubmitMessage({ type: 'error', message: data.error || 'Failed to fetch post data.' });
+      }
+    } catch (error) {
+      console.error('Error fetching post data:', error);
+      setSubmitMessage({ type: 'error', message: 'Failed to fetch post data. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent, isDraft: boolean = false) => {
     e.preventDefault();
-    if (!secretKey) {
+    
+    // For editing existing posts, always require secret key
+    if ((editingPostId || !isDraft) && !secretKey) {
       setSubmitMessage({ type: 'error', message: 'Secret key is required.' });
       return;
     }
+    
     if (post.platforms.length === 0) {
       setSubmitMessage({ type: 'error', message: 'Please select at least one platform.' });
       return;
     }
-    setIsSubmitting(true);
+    
+    if (isDraft) {
+      setIsSavingDraft(true);
+    } else {
+      setIsSubmitting(true);
+    }
     setSubmitMessage(null);
 
-    const formData = new FormData();
-    formData.append('secretKey', secretKey);
-    formData.append('postData', JSON.stringify({
-      post_text: post.post_text,
-      scheduled_date: new Date(post.scheduled_date).toISOString(),
-      platforms: post.platforms,
-      post_notes: post.post_notes,
-      team: post.team,
-    }));
-
-    if (post.mediaFiles) {
-      post.mediaFiles.forEach(file => formData.append('media', file));
-    }
-
     try {
-      const response = await fetch('/api/posts', { method: 'POST', body: formData });
-      const data = await response.json();
+      if (editingPostId) {
+        // Update existing post with FormData to handle media files
+        const formData = new FormData();
+        formData.append('id', editingPostId);
+        formData.append('secretKey', secretKey);
+        formData.append('isDraft', isDraft.toString());
+        formData.append('postData', JSON.stringify({
+          post_text: post.post_text,
+          scheduled_date: new Date(post.scheduled_date).toISOString(),
+          platforms: post.platforms,
+          post_notes: post.post_notes,
+          team: post.team,
+          status: isDraft ? 'draft' : 'pending',
+        }));
 
-      if (response.ok) {
-        setSubmitMessage({ type: 'success', message: 'Post scheduled successfully!' });
-        onOpen();
-        setPost({ post_text: '', scheduled_date: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16), platforms: [], mediaFiles: [] });
-        setPreviewUrls([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        // Handle media files for editing
+        if (post.mediaFiles && post.mediaFiles.length > 0) {
+          post.mediaFiles.forEach(file => {
+            // Only append actual File objects, not URLs
+            if (file instanceof File) {
+              formData.append('media', file);
+            }
+          });
+        }
+        
+        // Add deleted media information
+        if (deletedMedia.length > 0) {
+          formData.append('deletedMedia', JSON.stringify(deletedMedia));
+        }
+
+        const response = await fetch('/api/posts', {
+          method: 'PUT',
+          body: formData,  // Use FormData instead of JSON
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          setSubmitMessage({ type: 'success', message: `Post ${isDraft ? 'draft ' : ''}updated successfully!` });
+          // Reset form after successful update
+          setPost({ post_text: '', scheduled_date: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16), platforms: [], mediaFiles: [] });
+          setPreviewUrls([]);
+          setDeletedMedia([]); // Reset deleted media state
+          setEditingPostId(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          // Remove edit parameter from URL
+          router.push('/posts');
+        } else {
+          setSubmitMessage({ type: 'error', message: data.error || `Failed to update post` });
+        }
       } else {
-        setSubmitMessage({ type: 'error', message: data.error || 'Failed to schedule post' });
+        // Create new post
+        const formData = new FormData();
+        formData.append('secretKey', secretKey);
+        formData.append('isDraft', isDraft.toString());
+        formData.append('postData', JSON.stringify({
+          post_text: post.post_text,
+          scheduled_date: new Date(post.scheduled_date).toISOString(),
+          platforms: post.platforms,
+          post_notes: post.post_notes,
+          team: post.team,
+        }));
+
+        if (post.mediaFiles) {
+          post.mediaFiles.forEach(file => formData.append('media', file));
+        }
+
+        const response = await fetch('/api/posts', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (response.ok) {
+          if (isDraft) {
+            setSubmitMessage({ type: 'success', message: 'Draft saved successfully!' });
+          } else {
+            setSubmitMessage({ type: 'success', message: 'Post scheduled successfully!' });
+            onOpen();
+          }
+          // Always reset form after successful submission (both for drafts and scheduled posts)
+          setPost({
+            post_text: '',
+            scheduled_date: new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16),
+            platforms: [],
+            mediaFiles: []
+          });
+          setPreviewUrls([]);
+          setDeletedMedia([]); // Reset deleted media state
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        } else {
+          setSubmitMessage({ type: 'error', message: data.error || `Failed to ${isDraft ? 'save draft' : 'schedule post'}` });
+        }
       }
     } catch (error) {
       console.error("Submission failed:", error);
       setSubmitMessage({ type: 'error', message: 'A network error occurred. Please try again.' });
     } finally {
-      setIsSubmitting(false);
+      if (isDraft) {
+        setIsSavingDraft(false);
+      } else {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -147,8 +290,12 @@ export default function PostManager() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-10">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-white">Create Post</h1>
-            <p className="mt-1 text-md text-gray-500 dark:text-gray-400">Compose and schedule your content across platforms.</p>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+              {editingPostId ? 'Edit Post' : 'Create Post'}
+            </h1>
+            <p className="mt-1 text-md text-gray-500 dark:text-gray-400">
+              {editingPostId ? 'Edit your draft or scheduled post' : 'Compose and schedule your content across platforms.'}
+            </p>
           </div>
           <button onClick={() => router.push('/')} className="flex items-center gap-2 mt-4 md:mt-0 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
             <ArrowLeft className="h-4 w-4" />
@@ -227,11 +374,25 @@ export default function PostManager() {
               </div>
             </div>
             
-            <div className="flex items-center justify-between pt-4 space-x-2 border-t border-gray-200 dark:border-gray-700">
-              <button type="submit" disabled={isSubmitting || !secretKey} className="flex items-center gap-2 bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed">
-                {isSubmitting ? 'Posting...' : 'Post'}
-                <Send className="w-4 h-4" />
-              </button>
+            <div className="flex flex-wrap space-y-4 items-center justify-between pt-4 space-x-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
+                  disabled={isSavingDraft}
+                  className="flex items-center gap-2 bg-gray-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isSavingDraft ? 'Saving...' : 'Save as Draft'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !secretKey}
+                  className="flex items-center gap-2 bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? 'Posting...' : 'Post'}
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
               {submitMessage && (
                   <span className={`text-sm font-semibold ${submitMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{submitMessage.message}</span>
               )}

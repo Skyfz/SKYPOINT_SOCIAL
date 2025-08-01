@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Clock, CheckCircle, XCircle, AlertTriangle, Plus, RefreshCw, Twitter, Facebook, Instagram, Linkedin } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, AlertTriangle, Plus, RefreshCw, Twitter, Facebook, Instagram, Linkedin, Edit, Trash2 } from 'lucide-react';
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, useDisclosure } from "@heroui/react";
 
 // --- Helper Components & Icons (Unchanged) ---
 const PlatformIcon = ({ platform, className }: { platform: string; className: string }) => {
@@ -28,7 +29,7 @@ interface Post {
   post_text: string;
   scheduled_date: string;
   team?: string;
-  status: 'pending' | 'posted' | 'failed' | 'partial_success';
+  status: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success';
   platforms: string[];
   created_at: string;
   updated_at: string;
@@ -38,6 +39,7 @@ interface Post {
 
 interface Counts {
   total: number;
+  draft: number;
   pending: number;
   posted: number;
   failed: number;
@@ -48,11 +50,14 @@ interface Counts {
 export default function Dashboard() {
   // --- State and Hooks (Unchanged) ---
   const [posts, setPosts] = useState<Post[]>([]);
-  const [counts, setCounts] = useState<Counts>({ total: 0, pending: 0, posted: 0, failed: 0, partialSuccess: 0 });
+  const [counts, setCounts] = useState<Counts>({ total: 0, draft: 0, pending: 0, posted: 0, failed: 0, partialSuccess: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const [dataSource, setDataSource] = useState<'mock' | 'live' | null>(null);
+  const [secretKey, setSecretKey] = useState('');
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
 
   // --- Data Fetching Logic (with Indicator) ---
   const fetchPosts = async () => {
@@ -70,7 +75,7 @@ export default function Dashboard() {
         { _id: '4', post_text: "This post was successful on Twitter, but failed on Facebook due to an authentication error. We'll be retrying the Facebook post once the connection is re-established. Thanks for your patience.", scheduled_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), team: 'Marketing', status: 'partial_success', platforms: ['Twitter', 'Facebook'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
       ];
       setPosts(mockPosts);
-      setCounts({ total: 4, pending: 1, posted: 1, failed: 1, partialSuccess: 1 });
+      setCounts({ total: 4, draft: 0, pending: 1, posted: 1, failed: 1, partialSuccess: 1 });
       setError(null);
       setDataSource('mock');
 
@@ -97,13 +102,55 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
+  
+    const handleEdit = (postId: string) => {
+      router.push(`/posts?edit=${postId}`);
+    };
+  
+    const handleDelete = (postId: string) => {
+      if (!secretKey) {
+        setError('Secret key is required to delete posts.');
+        return;
+      }
+      
+      setPostToDelete(postId);
+      onOpen();
+    };
+    
+    const confirmDelete = async () => {
+      if (!postToDelete) return;
+      
+      try {
+        const response = await fetch('/api/posts', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: postToDelete, secretKey }),
+        });
+  
+        if (response.ok) {
+          // Refresh the posts list
+          fetchPosts();
+        } else {
+          const data = await response.json();
+          setError(data.error || 'Failed to delete post');
+        }
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        setError('Failed to delete post. Please try again.');
+      } finally {
+        setPostToDelete(null);
+      }
+    };
+  
+    useEffect(() => {
+      fetchPosts();
+    }, []);
   // --- Helper Functions (Unchanged) ---
   const getStatusInfo = (status: Post['status']): { color: string; dotColor: string; label: string } => {
     switch (status) {
+      case 'draft': return { color: 'text-gray-600 dark:text-gray-400', dotColor: 'bg-gray-500', label: 'Draft' };
       case 'pending': return { color: 'text-yellow-600 dark:text-yellow-400', dotColor: 'bg-yellow-500', label: 'Pending' };
       case 'posted': return { color: 'text-green-600 dark:text-green-400', dotColor: 'bg-green-500', label: 'Posted' };
       case 'failed': return { color: 'text-red-600 dark:text-red-400', dotColor: 'bg-red-500', label: 'Failed' };
@@ -135,6 +182,7 @@ export default function Dashboard() {
   // --- Data for UI Elements (Unchanged) ---
   const stats = [
     { label: 'Total Posts', value: counts.total, Icon: FileText, color: 'text-gray-900 dark:text-white' },
+    { label: 'Drafts', value: counts.draft, Icon: FileText, color: 'text-gray-600 dark:text-gray-400' },
     { label: 'Pending', value: counts.pending, Icon: Clock, color: 'text-yellow-600 dark:text-yellow-400' },
     { label: 'Posted', value: counts.posted, Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
     { label: 'Failed', value: counts.failed, Icon: XCircle, color: 'text-red-600 dark:text-red-400' },
@@ -161,19 +209,32 @@ export default function Dashboard() {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-4 md:mt-0">
-            <button onClick={() => fetchPosts()} disabled={loading} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">
-              <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button onClick={() => router.push('/posts')} className="flex items-center gap-2 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-              <Plus className="h-5 w-5" />
-              Create Post
-            </button>
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mt-4 md:mt-0">
+            <div className="flex items-center gap-2">
+              <label htmlFor="dashboardSecretKey" className="text-sm font-medium text-gray-700 dark:text-gray-300">Secret Key:</label>
+              <input
+                id="dashboardSecretKey"
+                type="password"
+                value={secretKey}
+                onChange={(e) => setSecretKey(e.target.value)}
+                placeholder="Enter secret key for deletions"
+                className="px-2 py-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={() => fetchPosts()} disabled={loading} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">
+                <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button onClick={() => router.push('/posts')} className="flex items-center gap-2 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                <Plus className="h-5 w-5" />
+                Create Post
+              </button>
+            </div>
           </div>
         </header>
 
-        {/* Stats Cards (Unchanged) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5 mb-8 md:mb-10">
+        {/* Stats Cards (Updated to include Drafts) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5 mb-8 md:mb-10">
           {stats.map((stat) => (
             <div key={stat.label} className="bg-white dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between space-x-2">
@@ -277,6 +338,25 @@ export default function Dashboard() {
                           <span className={`text-sm font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
                         </div>
                       </div>
+                      {/* Edit and Delete buttons for draft and pending posts */}
+                      {(post.status === 'draft' || post.status === 'pending') && (
+                        <div className="flex justify-end gap-2 mt-2">
+                          <button
+                            onClick={() => handleEdit(post._id)}
+                            className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(post._id)}
+                            className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -289,6 +369,31 @@ export default function Dashboard() {
         <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>Posts are processed automatically at their scheduled time.</p>
         </footer>
+        
+        {/* Delete Confirmation Modal */}
+        <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+          <ModalContent>
+            {(onClose) => (
+              <>
+                <ModalHeader className="flex flex-col gap-1">Confirm Deletion</ModalHeader>
+                <ModalBody>
+                  <p>Are you sure you want to delete this post? This action cannot be undone.</p>
+                </ModalBody>
+                <ModalFooter>
+                  <Button color="default" variant="light" onPress={onClose}>
+                    Cancel
+                  </Button>
+                  <Button color="danger" onPress={() => {
+                    confirmDelete();
+                    onClose();
+                  }}>
+                    Delete
+                  </Button>
+                </ModalFooter>
+              </>
+            )}
+          </ModalContent>
+        </Modal>
       </main>
     </div>
   );

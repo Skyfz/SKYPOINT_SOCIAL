@@ -23,6 +23,7 @@ export async function GET() {
     }
 
     // Find posts that are pending and scheduled for now or in the past
+    // Note: We only process 'pending' posts, not 'draft' posts
     const now = new Date();
     const pendingPosts = await postsCollection
       .find({
