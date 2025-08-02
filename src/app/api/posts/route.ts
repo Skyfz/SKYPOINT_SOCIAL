@@ -26,9 +26,9 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status');
     
     // Build query filter
-    const query: any = {};
+    const query: { status?: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success' } = {};
     if (statusFilter) {
-      query.status = statusFilter;
+      query.status = statusFilter as 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success';
     }
     
     // Fetch posts sorted by creation date (newest first)

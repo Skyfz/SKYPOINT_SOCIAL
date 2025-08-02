@@ -181,7 +181,7 @@ export default function Dashboard() {
 
   // --- Data for UI Elements (Unchanged) ---
   const stats = [
-    { label: 'Total Posts', value: counts.total, Icon: FileText, color: 'text-gray-900 dark:text-white' },
+    { label: 'Total', value: counts.total, Icon: FileText, color: 'text-gray-900 dark:text-white' },
     { label: 'Drafts', value: counts.draft, Icon: FileText, color: 'text-gray-600 dark:text-gray-400' },
     { label: 'Pending', value: counts.pending, Icon: Clock, color: 'text-yellow-600 dark:text-yellow-400' },
     { label: 'Posted', value: counts.posted, Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
