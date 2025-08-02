@@ -225,7 +225,7 @@ export async function PUT(request: NextRequest) {
     };
 
     // Handle media file uploads for editing
-    let mediaUrls: string[] = [];
+    const mediaUrls: string[] = [];
     if (mediaFiles && mediaFiles.length > 0) {
       for (const file of mediaFiles) {
         // Convert file to a buffer to upload
