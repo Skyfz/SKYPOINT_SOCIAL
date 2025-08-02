@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSocialMediaPostsCollection, SocialMediaPost } from '@/models/SocialMediaPost';
 import { ObjectId } from 'mongodb';
 import { v2 as cloudinary } from 'cloudinary';
-import { formidable } from 'formidable';
 
 // --- Cloudinary Configuration ---
 // Place this at the top of your file
@@ -14,14 +13,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true,
 });
-
-// Helper function to upload a file to Cloudinary
-async function uploadToCloudinary(filePath: string): Promise<string> {
-  const result = await cloudinary.uploader.upload(filePath, {
-    folder: 'social_media_posts', // Optional: store in a specific folder
-  });
-  return result.secure_url; // Return the secure URL of the uploaded file
-}
 
 // --- Your Existing GET Function (Unchanged) ---
 export async function GET(request: NextRequest) {
@@ -183,7 +174,6 @@ export async function PUT(request: NextRequest) {
     const secretKey = formData.get('secretKey') as string;
     const postDataJSON = formData.get('postData') as string;
     const mediaFiles = formData.getAll('media') as File[];
-    const isDraft = formData.get('isDraft') === 'true';
     const deletedMediaJSON = formData.get('deletedMedia') as string;
 
     const updateData = JSON.parse(postDataJSON);
