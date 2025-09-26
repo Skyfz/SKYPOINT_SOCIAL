@@ -7,7 +7,7 @@ export interface SocialMediaPost {
   scheduled_date: Date;
   team?: string;
   post_notes?: string;
-  status: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success';
+  status: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success' | 'deleted';
   post_links?: Record<string, string>;
   platforms: string[];
   created_at: Date;

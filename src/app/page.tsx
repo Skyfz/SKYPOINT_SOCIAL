@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Clock, CheckCircle, XCircle, AlertTriangle, Plus, RefreshCw, Twitter, Facebook, Instagram, Linkedin, Edit, Trash2 } from 'lucide-react';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, useDisclosure } from "@heroui/react";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, useDisclosure, Alert } from "@heroui/react";
 
 // --- Helper Components & Icons (Unchanged) ---
 const PlatformIcon = ({ platform, className }: { platform: string; className: string }) => {
@@ -29,7 +29,7 @@ interface Post {
   post_text: string;
   scheduled_date: string;
   team?: string;
-  status: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success';
+  status: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success' | 'deleted';
   platforms: string[];
   created_at: string;
   updated_at: string;
@@ -44,13 +44,14 @@ interface Counts {
   posted: number;
   failed: number;
   partialSuccess: number;
+  deleted: number;
 }
 
 // --- Main Dashboard Component (New UI) ---
 export default function Dashboard() {
   // --- State and Hooks (Unchanged) ---
   const [posts, setPosts] = useState<Post[]>([]);
-  const [counts, setCounts] = useState<Counts>({ total: 0, draft: 0, pending: 0, posted: 0, failed: 0, partialSuccess: 0 });
+  const [counts, setCounts] = useState<Counts>({ total: 0, draft: 0, pending: 0, posted: 0, failed: 0, partialSuccess: 0, deleted: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -75,7 +76,7 @@ export default function Dashboard() {
         { _id: '4', post_text: "This post was successful on Twitter, but failed on Facebook due to an authentication error. We'll be retrying the Facebook post once the connection is re-established. Thanks for your patience.", scheduled_date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), team: 'Marketing', status: 'partial_success', platforms: ['Twitter', 'Facebook'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
       ];
       setPosts(mockPosts);
-      setCounts({ total: 4, draft: 0, pending: 1, posted: 1, failed: 1, partialSuccess: 1 });
+      setCounts({ total: 4, draft: 0, pending: 1, posted: 1, failed: 1, partialSuccess: 1, deleted: 0 });
       setError(null);
       setDataSource('mock');
 
@@ -119,16 +120,35 @@ export default function Dashboard() {
     
     const confirmDelete = async () => {
       if (!postToDelete) return;
-      
+
       try {
-        const response = await fetch('/api/posts', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ id: postToDelete, secretKey }),
-        });
-  
+        // Find the post to check its status
+        const post = posts.find(p => p._id === postToDelete);
+        if (!post) return;
+
+        let response;
+        if (post.status === 'posted') {
+          // For posted posts, mark as deleted instead of deleting
+          const formData = new FormData();
+          formData.append('id', postToDelete);
+          formData.append('postData', JSON.stringify({ status: 'deleted' }));
+          formData.append('secretKey', ''); // Not required for posted posts
+
+          response = await fetch('/api/posts', {
+            method: 'PUT',
+            body: formData,
+          });
+        } else {
+          // For draft/pending posts, delete completely
+          response = await fetch('/api/posts', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id: postToDelete, secretKey }),
+          });
+        }
+
         if (response.ok) {
           // Refresh the posts list
           fetchPosts();
@@ -155,6 +175,7 @@ export default function Dashboard() {
       case 'posted': return { color: 'text-green-600 dark:text-green-400', dotColor: 'bg-green-500', label: 'Posted' };
       case 'failed': return { color: 'text-red-600 dark:text-red-400', dotColor: 'bg-red-500', label: 'Failed' };
       case 'partial_success': return { color: 'text-blue-600 dark:text-blue-400', dotColor: 'bg-blue-500', label: 'Partial Success' };
+      case 'deleted': return { color: 'text-gray-500 dark:text-gray-400', dotColor: 'bg-gray-400', label: 'Deleted' };
       default: return { color: 'text-gray-500 dark:text-gray-400', dotColor: 'bg-gray-500', label: 'Unknown' };
     }
   };
@@ -187,6 +208,7 @@ export default function Dashboard() {
     { label: 'Posted', value: counts.posted, Icon: CheckCircle, color: 'text-green-600 dark:text-green-400' },
     { label: 'Failed', value: counts.failed, Icon: XCircle, color: 'text-red-600 dark:text-red-400' },
     { label: 'Partial Success', value: counts.partialSuccess, Icon: AlertTriangle, color: 'text-blue-600 dark:text-blue-400' },
+    { label: 'Deleted', value: counts.deleted, Icon: Trash2, color: 'text-gray-500 dark:text-gray-400' },
   ];
   
   // --- Render Logic ---
@@ -227,14 +249,14 @@ export default function Dashboard() {
               </button>
               <button onClick={() => router.push('/posts')} className="flex items-center gap-2 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
                 <Plus className="h-5 w-5" />
-                Create Post
+                Create
               </button>
             </div>
           </div>
         </header>
 
-        {/* Stats Cards (Updated to include Drafts) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5 mb-8 md:mb-10">
+        {/* Stats Cards (Updated to include Deleted) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-5 mb-8 md:mb-10">
           {stats.map((stat) => (
             <div key={stat.label} className="bg-white dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between space-x-2">
@@ -251,9 +273,8 @@ export default function Dashboard() {
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Recent Activity</h2>
           
           {error && (
-            <div className="bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded-r-lg" role="alert">
-              <p className="font-bold">Error</p>
-              <p>{error}</p>
+            <div className="sticky top-0 z-50 pt-4 mb-4">
+              <Alert color="danger" title="Error" description={error} />
             </div>
           )}
 
@@ -338,9 +359,10 @@ export default function Dashboard() {
                           <span className={`text-sm font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
                         </div>
                       </div>
-                      {/* Edit and Delete buttons for draft and pending posts */}
-                      {(post.status === 'draft' || post.status === 'pending') && (
-                        <div className="flex justify-end gap-2 mt-2">
+                      {/* Buttons for posts */}
+                      <div className="flex justify-end gap-2 mt-2">
+                        {/* Edit button for draft and pending posts */}
+                        {(post.status === 'draft' || post.status === 'pending') && (
                           <button
                             onClick={() => handleEdit(post._id)}
                             className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
@@ -348,6 +370,9 @@ export default function Dashboard() {
                             <Edit className="w-4 h-4" />
                             Edit
                           </button>
+                        )}
+                        {/* Delete button for draft, pending, and posted posts */}
+                        {(post.status === 'draft' || post.status === 'pending' || post.status === 'posted') && (
                           <button
                             onClick={() => handleDelete(post._id)}
                             className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-1 rounded hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
@@ -355,8 +380,8 @@ export default function Dashboard() {
                             <Trash2 className="w-4 h-4" />
                             Delete
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

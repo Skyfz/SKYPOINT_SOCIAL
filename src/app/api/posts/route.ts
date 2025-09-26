@@ -26,9 +26,9 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status');
     
     // Build query filter
-    const query: { status?: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success' } = {};
+    const query: { status?: 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success' | 'deleted' } = {};
     if (statusFilter) {
-      query.status = statusFilter as 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success';
+      query.status = statusFilter as 'draft' | 'pending' | 'posted' | 'failed' | 'partial_success' | 'deleted';
     }
     
     // Fetch posts sorted by creation date (newest first)
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
     const postedPosts = await postsCollection.countDocuments({ status: 'posted' });
     const failedPosts = await postsCollection.countDocuments({ status: 'failed' });
     const partialSuccessPosts = await postsCollection.countDocuments({ status: 'partial_success' });
+    const deletedPosts = await postsCollection.countDocuments({ status: 'deleted' });
     
     return NextResponse.json({
       posts: posts.map(post => ({
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest) {
         pending: pendingPosts,
         posted: postedPosts,
         failed: failedPosts,
-        partialSuccess: partialSuccessPosts
+        partialSuccess: partialSuccessPosts,
+        deleted: deletedPosts
       }
     });
   } catch (error) {
