@@ -35,6 +35,7 @@ interface Post {
   updated_at: string;
   post_notes?: string;
   post_media?: string[]; // --- CHANGE: Corrected type to match database schema (array of strings)
+  post_links?: Record<string, string>;
 }
 
 interface Counts {
@@ -346,9 +347,24 @@ export default function Dashboard() {
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4 flex-wrap">
                           <div className="flex items-center gap-2">
-                            {post.platforms.map((platform) => (
-                              <PlatformIcon key={platform} platform={platform} className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                            ))}
+                            {post.platforms.map((platform) => {
+                              const platformKey = platform.toLowerCase();
+                              const linkUrl = post.status === 'posted' && post.post_links?.[platformKey] ? post.post_links[platformKey] : null;
+                              if (linkUrl) {
+                                return (
+                                  <a
+                                    key={platform}
+                                    href={linkUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                  >
+                                    <PlatformIcon platform={platform} className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                                  </a>
+                                );
+                              }
+                              return <PlatformIcon key={platform} platform={platform} className="h-5 w-5 text-gray-400 dark:text-gray-500" />;
+                            })}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                                {formatDateTime(post.scheduled_date)} ({formatScheduledTime(post.scheduled_date,post.status)})
