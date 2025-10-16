@@ -297,10 +297,10 @@ export default function PostManager() {
               {editingPostId ? 'Edit your draft or scheduled post' : 'Compose and schedule your content across platforms.'}
             </p>
           </div>
-          <button onClick={() => router.push('/')} className="flex items-center gap-2 mt-4 md:mt-0 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
+          <Button variant='ghost' onPress={() => router.push('/')} className="flex items-center gap-2 mt-4 md:mt-0 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
             <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
-          </button>
+          </Button>
         </header>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
